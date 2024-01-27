@@ -50,6 +50,7 @@ class _CreateCategoryState extends State<CreateCategoryPage> {
                             border: OutlineInputBorder(),
                             labelText: "Category name"),
                         controller: textController,
+                        autofocus: true,
                         // Validate the input to make sure it is not empty
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -92,13 +93,16 @@ class _CreateCategoryState extends State<CreateCategoryPage> {
                       (double.parse(numberController.text) * 100).round();
                   // create the category
                   await CatchupDatabase.instance.createCategory(CatchupCategory(
-                      name: textController.text, spendLimit: spendingLimit));
+                      name: textController.text.trim(),
+                      spendLimit: spendingLimit));
                   // close the page and return to the previous page
                   Navigator.pop(context);
                 }
               },
               style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xff18453B).withOpacity(0.90),
                   padding: const EdgeInsets.all(16)),
               child: const Icon(Icons.add),
             )

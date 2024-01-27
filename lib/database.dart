@@ -59,17 +59,57 @@ class CatchupDatabase {
 
   Future<int> createTransaction(CatchupTransaction transaction) async {
     final db = await instance.database;
-    return await db.insert('transactions', transaction.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert('transactions', transaction.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<int> sum_for_category(int category_id) async {
+  Future<int> deleteTransaction(int id) async {
     final db = await instance.database;
-    int sum = 0;
-    for (var row in await db.rawQuery('SELECT amount FROM transactions WHERE category_id = ?', [category_id])) {
-      sum += int.parse(row['amount'].toString());
+    return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> getCurrentMonthSum(int categoryId) async {
+    final db = await instance.database;
+
+    // get first date of current month
+    DateTime now = DateTime.now();
+    DateTime firstDate = DateTime(now.year, now.month, 1);
+    int firstDateEpoch = firstDate.millisecondsSinceEpoch ~/ 1000;
+
+    // get last date of current month
+    DateTime lastDate = DateTime(now.year, now.month + 1, 0);
+    int lastDateEpoch = lastDate.millisecondsSinceEpoch ~/ 1000;
+
+    final List<Map<String, Object?>> queryResult = await db.rawQuery(
+        "SELECT SUM(amount) AS total FROM transactions WHERE category_id = ? AND transaction_date BETWEEN ? AND ?",
+        [categoryId, firstDateEpoch, lastDateEpoch]);
+
+    if (queryResult[0]["total"] == null) {
+      return 0;
     }
-    return sum;
+    int total = queryResult[0]['total'] as int;
+    return total;
+  }
+
+  Future<List<CatchupTransaction>> getCurrentMonthTransactions(
+      int categoryId) async {
+    final db = await instance.database;
+
+    // get first date of current month
+    DateTime now = DateTime.now();
+    DateTime firstDate = DateTime(now.year, now.month, 1);
+    int firstDateEpoch = firstDate.millisecondsSinceEpoch ~/ 1000;
+
+    // get last date of current month
+    DateTime lastDate = DateTime(now.year, now.month + 1, 0);
+    int lastDateEpoch = lastDate.millisecondsSinceEpoch ~/ 1000;
+
+    final List<Map<String, Object?>> queryResult = await db.query(
+        "transactions",
+        where: "category_id = ? AND transaction_date BETWEEN ? AND ?",
+        whereArgs: [categoryId, firstDateEpoch, lastDateEpoch],
+        orderBy: "id DESC");
+
+    return queryResult.map((e) => CatchupTransaction.fromMap(e)).toList();
   }
 }
-
-

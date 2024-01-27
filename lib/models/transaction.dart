@@ -23,7 +23,7 @@ class CatchupTransaction {
     return {
       "id": id,
       "amount": amount,
-      "transaction_date": (date.microsecondsSinceEpoch / 1000).round(),
+      "transaction_date": date.millisecondsSinceEpoch ~/ 1000,
       "category_id": categoryId
     };
   }

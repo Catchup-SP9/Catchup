@@ -54,6 +54,7 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                         decoration: const InputDecoration(
                             border: OutlineInputBorder(), labelText: "Amount"),
                         controller: numberController,
+                        autofocus: true,
                         // only allow numbers to be entered
                         keyboardType: TextInputType.number,
                         inputFormatters: <TextInputFormatter>[
@@ -66,6 +67,21 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                             return "Please enter a valid amount";
                           }
                           return null;
+                        },
+                        onFieldSubmitted: (value) async {
+                          if (_formKey.currentState!.validate()) {
+                            // convert the number to cents
+                            int amount =
+                                (double.parse(numberController.text) * 100)
+                                    .round();
+                            await CatchupDatabase.instance.createTransaction(
+                                CatchupTransaction(
+                                    amount: amount,
+                                    date: DateTime.now(),
+                                    categoryId: widget.category.id!));
+                            // close the page and return to the previous page
+                            Navigator.pop(context);
+                          }
                         },
                       ),
                     ],
@@ -88,6 +104,8 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                 }
               },
               style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xff18453B).withOpacity(0.90),
                   shape: const CircleBorder(),
                   padding: const EdgeInsets.all(16)),
               child: const Icon(Icons.add),
