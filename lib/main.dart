@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/database.dart';
 import 'package:mobile/views/category_details.dart';
 import 'package:mobile/views/create_category.dart';
+import 'package:mobile/views/create_transaction.dart';
 
 import 'models/category.dart';
 
@@ -42,7 +43,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late List<CatchupCategory> categories;
   bool isLoading = false;
-  bool isEditing = false;
 
   // Override initState to call refreshCategories when the app starts
   @override
@@ -114,26 +114,54 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  double spentPercentage = 0;
+
   Widget buildCategories(BuildContext context, int index) {
+    double spentPercentage;
+    if (categories[index].spendLimit != 0) {
+      spentPercentage = 1000 /
+          (categories[index].spendLimit /
+              100); //replace 1000 with transaction sum
+    } else {
+      spentPercentage = 0;
+    } //decide later what to do when limit not set
     // InkWell is a widget that allows us to add a tap event to a widget
     return InkWell(
       child: Card(
           child: ListTile(
         title: Text(categories[index].name),
-        trailing: isEditing
-            ? const IconButton(onPressed: null, icon: Icon(Icons.edit))
-            : null,
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Spent: ${(spentPercentage * 100).toStringAsFixed(2)}%'),
+          SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: spentPercentage, // Set the progress value here.
+            color: Colors.lightGreen, //set logic for color of progress here
+          )
+        ]),
+        trailing: IconButton(
+            onPressed: () async {
+              await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          CreateTransactionPage(categories[index])));
+              // When the user returns, refresh the categories list
+              refreshCategories();
+            },
+            icon: const Icon(Icons.add)),
+        onTap: () async {
+          // When the category is tapped, navigate to the CategoryDetailsPage
+          // and wait for the user to return
+          await Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      CategoryDetailsPage(categories[index])));
+          // When the user returns, refresh the categories list
+          refreshCategories();
+        },
       )),
-      onTap: () async {
-        // When the category is tapped, navigate to the CategoryDetailsPage
-        // and wait for the user to return
-        await Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => CategoryDetailsPage(categories[index])));
-        // When the user returns, refresh the categories list
-        refreshCategories();
-      },
     );
   }
 }

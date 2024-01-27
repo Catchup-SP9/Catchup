@@ -2,27 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/database.dart';
 import 'package:mobile/models/category.dart';
+import 'package:mobile/models/transaction.dart';
 
-class CreateCategoryPage extends StatefulWidget {
-  const CreateCategoryPage({super.key});
+class CreateTransactionPage extends StatefulWidget {
+  final CatchupCategory category;
+
+  const CreateTransactionPage(this.category, {super.key});
 
   @override
-  State<CreateCategoryPage> createState() => _CreateCategoryState();
+  State<CreateTransactionPage> createState() => _CreateTransactionState();
 }
 
-class _CreateCategoryState extends State<CreateCategoryPage> {
-  // textController and numberController are used to get the values from the
-  // text fields
-  final textController = TextEditingController();
+class _CreateTransactionState extends State<CreateTransactionPage> {
   final numberController = TextEditingController();
 
-  // _formKey is used to validate the form
   final _formKey = GlobalKey<FormState>();
 
-  // Override dispose to close the controllers when the page is closed
   @override
   void dispose() {
-    textController.dispose();
     numberController.dispose();
     super.dispose();
   }
@@ -31,39 +28,31 @@ class _CreateCategoryState extends State<CreateCategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: const Text("Create category"),
+          title: const Text("Create transaction"),
         ),
         body: Padding(
-          // Padding is used to add some space around the form
           padding: const EdgeInsets.all(16),
           child: Column(children: <Widget>[
             Flexible(
               child: Form(
                   key: _formKey,
-                  // The form contains two text fields
                   child: Column(
                     children: <Widget>[
-                      // The TextFormField is used to get text input from the user
-                      // for the category name
                       TextFormField(
                         decoration: const InputDecoration(
                             border: OutlineInputBorder(),
+                            disabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey)),
+                            filled: true,
                             labelText: "Category name"),
-                        controller: textController,
-                        // Validate the input to make sure it is not empty
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Please enter a category name";
-                          }
-                          return null;
-                        },
+                        initialValue: widget.category.name,
+                        readOnly: true,
+                        enableInteractiveSelection: false,
                       ),
-                      // SizedBox is used to add some space between the two text fields
                       const SizedBox(height: 8),
-                      // The second TextFormField is used to get the spending limit
                       TextFormField(
                         decoration: const InputDecoration(
-                            border: OutlineInputBorder(), labelText: "Limit"),
+                            border: OutlineInputBorder(), labelText: "Amount"),
                         controller: numberController,
                         // only allow numbers to be entered
                         keyboardType: TextInputType.number,
@@ -74,12 +63,11 @@ class _CreateCategoryState extends State<CreateCategoryPage> {
                         // ensure that the input is not empty
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            numberController.text = "0";
+                            return "Please enter a valid amount";
                           }
                           return null;
                         },
                       ),
-                      const Text("Leave this field empty for no limit"),
                     ],
                   )),
             ),
@@ -88,11 +76,13 @@ class _CreateCategoryState extends State<CreateCategoryPage> {
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
                   // convert the number to cents
-                  int spendingLimit =
+                  int amount =
                       (double.parse(numberController.text) * 100).round();
-                  // create the category
-                  await CatchupDatabase.instance.createCategory(CatchupCategory(
-                      name: textController.text, spendLimit: spendingLimit));
+                  await CatchupDatabase.instance.createTransaction(
+                      CatchupTransaction(
+                          amount: amount,
+                          date: DateTime.now(),
+                          categoryId: widget.category.id!));
                   // close the page and return to the previous page
                   Navigator.pop(context);
                 }
