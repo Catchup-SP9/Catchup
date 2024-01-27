@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/database.dart';
+import 'package:mobile/views/category_details.dart';
+import 'package:mobile/views/create_category.dart';
+
+import 'models/category.dart';
 
 void main() {
   runApp(const CatchupApp());
@@ -13,8 +18,12 @@ class CatchupApp extends StatelessWidget {
     return MaterialApp(
       title: 'Catchup',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff18453B)),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xff18453B),
+          foregroundColor: Colors.white,
+        ),
       ),
       home: const HomePage(title: 'Catchup'),
     );
@@ -24,61 +33,107 @@ class CatchupApp extends StatelessWidget {
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
-/*hui
-huina
-huevo
- */
+
 class _HomePageState extends State<HomePage> {
+  late List<CatchupCategory> categories;
+  bool isLoading = false;
+  bool isEditing = false;
+
+  // Override initState to call refreshCategories when the app starts
+  @override
+  void initState() {
+    super.initState();
+    refreshCategories();
+  }
+
+  // Override dispose to close the database when the app is closed
+  @override
+  void dispose() {
+    CatchupDatabase.instance.close();
+    super.dispose();
+  }
+
+  // refreshCategories is a method that will refresh the categories list
+  // the isLoading variable is used to show a loading indicator
+  // and prevent the user from interacting with the app while the database is being queried
+  Future refreshCategories() async {
+    setState(() => isLoading = true);
+
+    categories = await CatchupDatabase.instance.getAllCategories();
+
+    setState(() => isLoading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: "Catchup",
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text("Catchup"),
-        ),
-        body: ListView(
-          children: const <Widget>[
-            Card(
-              child: ListTile(
-                title: Text('Groceries'),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                title: Text('Education'),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                title: Text('Nahui'),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                title: Text('Blyat'),
-              ),
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-            onPressed: () {}, child: const Icon(Icons.add)),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Catchup"),
+        actions: <Widget>[
+          IconButton(
+              onPressed: () {}, icon: const Icon(Icons.upload_file_outlined))
+        ],
       ),
+      // If the app is loading, show a loading text
+      body: isLoading
+          ? const Center(child: Text("Loading"))
+          // then check if the categories list is empty
+          : categories.isEmpty
+              // if it is empty, show a text to add a category
+              ? const Center(
+                  child: Text("It is lonely here, maybe add a category?"),
+                )
+              // if it is not empty, show the list of categories
+              // ListView.builder is used to build a list of widgets from a list of data
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  itemCount: categories.length,
+                  itemBuilder: buildCategories),
+      // The floating button at the bottom of the screen
+      floatingActionButton: FloatingActionButton(
+          shape: const CircleBorder(),
+          onPressed: () async {
+            // When the button is pressed, navigate to the CreateCategoryPage
+            // and wait for the user to return
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const CreateCategoryPage()),
+            );
+            // When the user returns, refresh the categories list
+            refreshCategories();
+          },
+          child: const Icon(Icons.add)),
+      // The position of the floating button
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget buildCategories(BuildContext context, int index) {
+    // InkWell is a widget that allows us to add a tap event to a widget
+    return InkWell(
+      child: Card(
+          child: ListTile(
+        title: Text(categories[index].name),
+        trailing: isEditing
+            ? const IconButton(onPressed: null, icon: Icon(Icons.edit))
+            : null,
+      )),
+      onTap: () async {
+        // When the category is tapped, navigate to the CategoryDetailsPage
+        // and wait for the user to return
+        await Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => CategoryDetailsPage(categories[index])));
+        // When the user returns, refresh the categories list
+        refreshCategories();
+      },
     );
   }
 }
