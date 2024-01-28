@@ -93,7 +93,11 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                         children: [
                           const Text("Transaction Date: "),
                           Text("${selectedDate.toLocal()}".split(' ')[0]),
-                          OutlinedButton(
+
+                          TextButton.icon(
+                              icon: Icon(Icons.calendar_today),
+
+                            label: Text("Change date"),
                             onPressed: () => {
                               showDatePicker(
                                       context: context,
@@ -104,11 +108,12 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                                 setState(() {
                                   selectedDate = date!;
                                 });
-                              })
+                              }),
+
+
                             },
-                            child: const Text(
-                              "Change Date",
-                            ),
+
+
                           ),
                         ],
                       ),
