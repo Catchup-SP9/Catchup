@@ -69,9 +69,10 @@ class _ImportPaypalTransactionsState
                                         const CsvToListConverter(eol: '\n'))
                                     .toList();
 
+                                int transactionCount = lines.length;
                                 for (final line in lines) {
-                                  double amount = double.parse(
-                                      line[7].replaceAll(',', ''));
+                                  double amount =
+                                      double.parse(line[7].replaceAll(',', ''));
 
                                   if (amount < 0) {
                                     amount = amount.abs();
@@ -95,6 +96,20 @@ class _ImportPaypalTransactionsState
                                     //
                                   }
                                 }
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) =>
+                                        AlertDialog(
+                                            title: const Text("Success"),
+                                            content: Text(
+                                                "Imported $transactionCount transactions"),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context);
+                                                  },
+                                                  child: const Text("OK"))
+                                            ]));
                               }
                             },
                             child: const Text("Import"))),

@@ -7,7 +7,6 @@ import 'package:mobile/models/transaction.dart';
 class CreateTransactionPage extends StatefulWidget {
   final CatchupCategory category;
 
-
   const CreateTransactionPage(this.category, {super.key});
 
   @override
@@ -30,13 +29,14 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime pickedDate = (await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    )) ?? DateTime.now();
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2101),
+        )) ??
+        DateTime.now();
 
-    if (pickedDate != null && pickedDate != selectedDate) {
+    if (pickedDate != selectedDate) {
       setState(() {
         selectedDate = pickedDate;
       });
@@ -87,15 +87,6 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                           }
                           return null;
                         },
-                        onFieldSubmitted: (value) async {
-                          if (_formKey.currentState!.validate()) {
-                            // convert the number to cents
-                            int amount =
-                                (double.parse(numberController.text) * 100)
-                                    .round();
-
-                          }
-                        },
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
@@ -117,47 +108,42 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                       Row(
                         children: [
                           const Text("Transaction Date: "),
-                          Text(selectedDate != null
-                              ? "${selectedDate!.toLocal()}".split(' ')[0]
-                              : "${DateTime.now().toLocal()}".split(' ')[0],),
+                          Text(
+                            selectedDate != null
+                                ? "${selectedDate!.toLocal()}".split(' ')[0]
+                                : "${DateTime.now().toLocal()}".split(' ')[0],
+                          ),
                           OutlinedButton(
                             onPressed: () => _selectDate(context),
-                            child: Text(
+                            child: const Text(
                               "Change Date",
-                            ),
-                            style: TextButton.styleFrom(
-                              primary: Colors.lightGreen
                             ),
                           ),
                         ],
-
                       ),
-
                     ],
-
                   )),
-
             ),
             // The ElevatedButton is used to submit the form
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
                   // convert the number to cents
-                  int amount = (double.parse(numberController.text) * 100).round();
+                  int amount =
+                      (double.parse(numberController.text) * 100).round();
                   String description = descriptionController.text;
 
-                  await CatchupDatabase.instance.createTransaction(
-                      CatchupTransaction(
+                  await CatchupDatabase.instance
+                      .createTransaction(CatchupTransaction(
                           amount: amount,
                           date: selectedDate!,
                           //date: DateTime.now(),
-                          categoryId: widget.category.id!, description: description));
+                          categoryId: widget.category.id!,
+                          description: description));
                   // close the page and return to the previous page
                   Navigator.pop(context);
                 }
               },
-
-
               style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
                   backgroundColor: const Color(0xff18453B).withOpacity(0.90),

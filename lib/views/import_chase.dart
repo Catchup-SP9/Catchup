@@ -68,6 +68,8 @@ class _ImportChaseTransactionsState extends State<ImportChaseTransactionsPage> {
                                 Response<Map> response =
                                     await dio.postUri(uri, data: formData);
                                 Map<dynamic, dynamic> data = response.data!;
+                                int transactionCount =
+                                    (data['data'] as List).length;
                                 for (final transaction in data['data']) {
                                   await CatchupDatabase.instance
                                       .createTransaction(CatchupTransaction(
@@ -81,6 +83,20 @@ class _ImportChaseTransactionsState extends State<ImportChaseTransactionsPage> {
                                           originalTransactionId:
                                               transaction["hash"]));
                                 }
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) =>
+                                        AlertDialog(
+                                            title: const Text("Success"),
+                                            content: Text(
+                                                "Imported $transactionCount transactions"),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context);
+                                                  },
+                                                  child: const Text("OK"))
+                                            ]));
                               }
                             },
                             child: const Text("Import"))),
