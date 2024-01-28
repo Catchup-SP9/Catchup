@@ -16,7 +16,7 @@ class CreateTransactionPage extends StatefulWidget {
 class _CreateTransactionState extends State<CreateTransactionPage> {
   final numberController = TextEditingController();
   final descriptionController = TextEditingController();
-  DateTime? selectedDate;
+  DateTime selectedDate = DateTime.now();
 
   final _formKey = GlobalKey<FormState>();
 
@@ -25,22 +25,6 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
     numberController.dispose();
     descriptionController.dispose();
     super.dispose();
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime pickedDate = (await showDatePicker(
-          context: context,
-          initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2101),
-        )) ??
-        DateTime.now();
-
-    if (pickedDate != selectedDate) {
-      setState(() {
-        selectedDate = pickedDate;
-      });
-    }
   }
 
   @override
@@ -108,13 +92,20 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                       Row(
                         children: [
                           const Text("Transaction Date: "),
-                          Text(
-                            selectedDate != null
-                                ? "${selectedDate!.toLocal()}".split(' ')[0]
-                                : "${DateTime.now().toLocal()}".split(' ')[0],
-                          ),
+                          Text("${selectedDate.toLocal()}".split(' ')[0]),
                           OutlinedButton(
-                            onPressed: () => _selectDate(context),
+                            onPressed: () => {
+                              showDatePicker(
+                                      context: context,
+                                      initialDate: selectedDate,
+                                      firstDate: DateTime(2000),
+                                      lastDate: DateTime(2025))
+                                  .then((date) {
+                                setState(() {
+                                  selectedDate = date!;
+                                });
+                              })
+                            },
                             child: const Text(
                               "Change Date",
                             ),
@@ -136,7 +127,7 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                   await CatchupDatabase.instance
                       .createTransaction(CatchupTransaction(
                           amount: amount,
-                          date: selectedDate!,
+                          date: selectedDate,
                           //date: DateTime.now(),
                           categoryId: widget.category.id!,
                           description: description));

@@ -23,6 +23,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
   late int maxDailyAmount;
   late List<CatchupTransaction> transactions;
   late List<int> transactionsByDate;
+  late int num_of_days;
   bool isLoading = false;
 
   String selectedRange = "This month";
@@ -32,6 +33,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
     super.initState();
     refreshTransactions();
   }
+
 
   Future refreshTransactions() async {
     setState(() => isLoading = true);
@@ -50,6 +52,9 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
         transactions = await CatchupDatabase.instance
             .getTransactionFromToDate(widget.category.id!, firstDate, lastDate);
+        transactionsByDate = await CatchupDatabase.instance
+            .getAggregateSumFromToDate(
+                widget.category.id!, firstDate, lastDate);
         break;
       case "Last month":
         // get first date of last month
@@ -61,30 +66,27 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
         transactions = await CatchupDatabase.instance
             .getTransactionFromToDate(widget.category.id!, firstDate, lastDate);
+        transactionsByDate = await CatchupDatabase.instance
+            .getAggregateSumFromToDate(
+                widget.category.id!, firstDate, lastDate);
         break;
       case "Custom range":
-        DateTime? startDate = await showDatePicker(
+        DateTimeRange? picked = await showDateRangePicker(
             context: context,
-            initialDate: DateTime.now(),
             firstDate: DateTime(2000),
             lastDate: DateTime(2101),
-            helpText: "Select start date");
-        DateTime? endDate = await showDatePicker(
-            context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
-            helpText: "Select end date");
+            helpText: "Select date range");
+        DateTime? startDate = picked?.start;
+        DateTime? endDate = picked?.end;
 
         transactions = await CatchupDatabase.instance.getTransactionFromToDate(
             widget.category.id!, startDate!, endDate!);
+        transactionsByDate = await CatchupDatabase.instance
+            .getAggregateSumFromToDate(widget.category.id!, startDate, endDate);
     }
 
-    transactionsByDate = await CatchupDatabase.instance
-        .getCurrentMonthTransactionSumByDay(widget.category.id!);
-
     maxDailyAmount = transactionsByDate.reduce(max);
-
+    num_of_days = transactionsByDate.length;
     setState(() => isLoading = false);
   }
 
@@ -110,7 +112,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
                     width: 500,
                     child: LineChart(LineChartData(
                       minX: 0,
-                      maxX: 31,
+                      maxX: num_of_days.toDouble(),
                       minY: 0,
                       maxY: maxDailyAmount / 100,
                       lineBarsData: [
@@ -223,8 +225,62 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
     String transactionAmount =
         (transactions[index].amount / 100).toStringAsFixed(2);
+    String transactionName = (transactions[index].description);
 
-    return Card(
+    return GestureDetector(
+      onTap: (){
+        showDialog(
+          context: context,
+          builder: (BuildContext context) => AlertDialog(
+            title: Text(transactionName),
+
+
+          content: Column(
+            children: [
+              Text(
+                "Recommended Categories",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+
+              ListTile(
+                title: Text("Option 1"),
+                onTap: () {
+
+                  Navigator.pop(context); // Close the AlertDialog if needed
+                },
+              ),
+              ListTile(
+                title: Text("Option 2"),
+                onTap: () {
+
+                  Navigator.pop(context); // Close the AlertDialog if needed
+                },
+              ),
+              ListTile(
+                title: Text("Option 3"),
+                onTap: () {
+
+                  Navigator.pop(context); // Close the AlertDialog if needed
+                },
+              ),
+            ],),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+
+          ),
+        );
+
+    },
+
+    child: Card(
+
         child: ListTile(
       title: Text("\$$transactionAmount"),
       subtitle: Text(transactionDate),
@@ -257,6 +313,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
           }
         },
       ),
-    ));
+
+    )));
   }
 }
