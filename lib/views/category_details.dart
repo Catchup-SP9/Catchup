@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/models/category.dart';
@@ -22,9 +23,13 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
   late int amountSpent;
   late int maxDailyAmount;
   late List<CatchupTransaction> transactions;
+  late List<CatchupCategory> categories;
   late List<int> transactionsByDate;
-  late int num_of_days;
+  late int numOfDays;
   bool isLoading = false;
+  DateTime firstDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime lastDate =
+      DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
 
   String selectedRange = "This month";
 
@@ -34,59 +39,20 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
     refreshTransactions();
   }
 
-
   Future refreshTransactions() async {
     setState(() => isLoading = true);
 
     amountSpent =
         await CatchupDatabase.instance.getCurrentMonthSum(widget.category.id!);
 
-    switch (selectedRange) {
-      case "This month":
-        // get first date of current month
-        DateTime now = DateTime.now();
-        DateTime firstDate = DateTime(now.year, now.month, 1);
-
-        // get last date of current month
-        DateTime lastDate = DateTime(now.year, now.month + 1, 0);
-
-        transactions = await CatchupDatabase.instance
-            .getTransactionFromToDate(widget.category.id!, firstDate, lastDate);
-        transactionsByDate = await CatchupDatabase.instance
-            .getAggregateSumFromToDate(
-                widget.category.id!, firstDate, lastDate);
-        break;
-      case "Last month":
-        // get first date of last month
-        DateTime now = DateTime.now();
-        DateTime firstDate = DateTime(now.year, now.month - 1, 1);
-
-        // get last date of last month
-        DateTime lastDate = DateTime(now.year, now.month, 0);
-
-        transactions = await CatchupDatabase.instance
-            .getTransactionFromToDate(widget.category.id!, firstDate, lastDate);
-        transactionsByDate = await CatchupDatabase.instance
-            .getAggregateSumFromToDate(
-                widget.category.id!, firstDate, lastDate);
-        break;
-      case "Custom range":
-        DateTimeRange? picked = await showDateRangePicker(
-            context: context,
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
-            helpText: "Select date range");
-        DateTime? startDate = picked?.start;
-        DateTime? endDate = picked?.end;
-
-        transactions = await CatchupDatabase.instance.getTransactionFromToDate(
-            widget.category.id!, startDate!, endDate!);
-        transactionsByDate = await CatchupDatabase.instance
-            .getAggregateSumFromToDate(widget.category.id!, startDate, endDate);
-    }
+    transactions = await CatchupDatabase.instance
+        .getTransactionFromToDate(widget.category.id!, firstDate, lastDate);
+    transactionsByDate = await CatchupDatabase.instance
+        .getAggregateSumFromToDate(widget.category.id!, firstDate, lastDate);
 
     maxDailyAmount = transactionsByDate.reduce(max);
-    num_of_days = transactionsByDate.length;
+    numOfDays = transactionsByDate.length;
+    categories = await CatchupDatabase.instance.getAllCategories();
     setState(() => isLoading = false);
   }
 
@@ -103,32 +69,60 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
               ? const Text("Amount spent: Loading")
               : Text(
                   "Amount spent: \$${(amountSpent / 100).toStringAsFixed(2)}"),
-          Visibility(
-            visible: widget.category.id != 1,
-            child: isLoading
-                ? const Text("Loading chart")
-                : SizedBox(
-                    height: 300,
-                    width: 500,
-                    child: LineChart(LineChartData(
-                      minX: 0,
-                      maxX: num_of_days.toDouble(),
-                      minY: 0,
-                      maxY: maxDailyAmount / 100,
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: [
-                            for (final (index, value)
-                                in transactionsByDate.indexed)
-                              FlSpot(index.toDouble(), value / 100)
-                          ],
-                          belowBarData:
-                              BarAreaData(show: true, color: Colors.green),
+          isLoading
+              ? const Text("Loading graph")
+              : Container(
+                  height: 300,
+                  width: 500,
+                  padding: const EdgeInsets.only(right: 8, top: 8, left: 8),
+                  child: BarChart(BarChartData(
+                    maxY: maxDailyAmount / 100 * 1.1,
+                    titlesData: FlTitlesData(
+                        show: true,
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (double value, TitleMeta meta) {
+                              if (transactionsByDate[value.toInt()] == 0 &&
+                                  value.toInt() != 0) {
+                                return const SizedBox.shrink();
+                              }
+                              return Text(
+                                DateFormat("MM/dd").format(
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                        value.toInt() * 1000)),
+                                style: const TextStyle(color: Colors.black),
+                              );
+                            },
+                          ),
                         ),
-                      ],
-                    )),
-                  ),
-          ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 32,
+                            getTitlesWidget: (double value, TitleMeta meta) {
+                              return Text("\$${value.toInt()}");
+                            },
+                          ),
+                        )),
+                    barGroups: [
+                      for (final (index, value) in transactionsByDate.indexed)
+                        BarChartGroupData(
+                          x: index,
+                          barRods: [
+                            BarChartRodData(
+                              toY: value / 100,
+                              borderRadius: BorderRadius.zero,
+                            ),
+                          ],
+                        ),
+                    ],
+                  )),
+                ),
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.grey[300],
@@ -144,11 +138,45 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
                         child: Text(value),
                       );
                     }).toList(),
-                    onChanged: (value) {
+                    onChanged: (value) async {
                       setState(() {
                         isLoading = true;
-                        selectedRange = value.toString();
-                        refreshTransactions();
+                      });
+                      selectedRange = value.toString();
+
+                      switch (selectedRange) {
+                        case "This month":
+                          // get first date of current month
+                          DateTime now = DateTime.now();
+                          firstDate = DateTime(now.year, now.month, 1);
+
+                          // get last date of current month
+                          lastDate = DateTime(now.year, now.month + 1, 0);
+
+                          break;
+                        case "Last month":
+                          // get first date of last month
+                          DateTime now = DateTime.now();
+                          firstDate = DateTime(now.year, now.month - 1, 1);
+
+                          // get last date of last month
+                          lastDate = DateTime(now.year, now.month, 0);
+                          break;
+                        case "Custom range":
+                          DateTimeRange? picked = await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2101),
+                              helpText: "Select date range");
+
+                          firstDate = picked!.start;
+                          lastDate = picked.end;
+                          break;
+                      }
+
+                      refreshTransactions();
+
+                      setState(() {
                         isLoading = false;
                       });
                     }),
@@ -225,95 +253,136 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
     String transactionAmount =
         (transactions[index].amount / 100).toStringAsFixed(2);
-    String transactionName = (transactions[index].description);
 
     return GestureDetector(
-      onTap: (){
-        showDialog(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: Text(transactionName),
-
-
-          content: Column(
-            children: [
-              Text(
-                "Recommended Categories",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-
-              ListTile(
-                title: Text("Option 1"),
-                onTap: () {
-
-                  Navigator.pop(context); // Close the AlertDialog if needed
-                },
-              ),
-              ListTile(
-                title: Text("Option 2"),
-                onTap: () {
-
-                  Navigator.pop(context); // Close the AlertDialog if needed
-                },
-              ),
-              ListTile(
-                title: Text("Option 3"),
-                onTap: () {
-
-                  Navigator.pop(context); // Close the AlertDialog if needed
-                },
-              ),
-            ],),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK"),
-              ),
-            ],
-
-          ),
-        );
-
-    },
-
-    child: Card(
-
-        child: ListTile(
-      title: Text("\$$transactionAmount"),
-      subtitle: Text(transactionDate),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () async {
-          String? action = await showDialog<String>(
+        onTap: () {
+          showDialog(
             context: context,
-            builder: (BuildContext context) => AlertDialog(
-              title: const Text("Confirmation"),
-              content: Text(
-                  "Are you sure that you want to delete the \$$transactionAmount transaction on $transactionDate?"),
-              actions: <Widget>[
-                TextButton(
-                    onPressed: () => Navigator.pop(context, "cancel"),
-                    child: const Text("Cancel")),
-                TextButton(
-                    onPressed: () => Navigator.pop(context, "delete"),
-                    child: const Text(
-                      "Delete",
-                      style: TextStyle(color: Colors.red),
-                    )),
-              ],
-            ),
+            builder: (BuildContext context) => SwitchCategoryPopup(
+                transactions[index], widget.category, refreshTransactions),
           );
-          if (action == "delete") {
-            await CatchupDatabase.instance
-                .deleteTransaction(transactions[index].id!);
-            refreshTransactions();
-          }
         },
-      ),
+        child: Card(
+            child: ListTile(
+          title: Text("\$$transactionAmount"),
+          subtitle: Text(transactionDate),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: () async {
+              String? action = await showDialog<String>(
+                context: context,
+                builder: (BuildContext context) => AlertDialog(
+                  title: const Text("Confirmation"),
+                  content: Text(
+                      "Are you sure that you want to delete the \$$transactionAmount transaction on $transactionDate?"),
+                  actions: <Widget>[
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, "cancel"),
+                        child: const Text("Cancel")),
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, "delete"),
+                        child: const Text(
+                          "Delete",
+                          style: TextStyle(color: Colors.red),
+                        )),
+                  ],
+                ),
+              );
+              if (action == "delete") {
+                await CatchupDatabase.instance
+                    .deleteTransaction(transactions[index].id!);
+                refreshTransactions();
+              }
+            },
+          ),
+        )));
+  }
+}
 
-    )));
+class SwitchCategoryPopup extends StatefulWidget {
+  final CatchupTransaction transaction;
+  final CatchupCategory category;
+  final Function refreshTransactions;
+
+  const SwitchCategoryPopup(
+      this.transaction, this.category, this.refreshTransactions,
+      {super.key});
+
+  @override
+  _SwitchCategoryPopupState createState() => _SwitchCategoryPopupState();
+}
+
+class _SwitchCategoryPopupState extends State<SwitchCategoryPopup> {
+  late List<CatchupCategory> categories;
+  String suggestedCategory = "";
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadSuggestions();
+  }
+
+  Future loadSuggestions() async {
+    setState(() => isLoading = true);
+    categories = await CatchupDatabase.instance.getAllCategories();
+
+    final uri = Uri.parse("http://35.21.132.37:8000/recommendation");
+    var dio = Dio();
+
+    Response<Map> response = await dio.postUri(uri, data: {
+      "description": widget.transaction.description,
+      "categories": categories.map((e) => e.name).toList()
+    });
+
+    Map<dynamic, dynamic> data = response.data!;
+    suggestedCategory = data["data"];
+    setState(() => isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const AlertDialog(
+        title: Text("Loading"),
+      );
+    }
+
+    return AlertDialog(
+      title: Text(widget.transaction.description),
+      content: SizedBox(
+        height: 300.0,
+        width: 300.0,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: categories.length,
+          itemBuilder: (context, catIndex) {
+            // ignore the current category and the "Uncategorized" category
+            if (categories[catIndex].id == widget.category.id ||
+                categories[catIndex].id == 1) {
+              return const SizedBox.shrink();
+            }
+            return ListTile(
+              title: Text(categories[catIndex].name),
+              tileColor: categories[catIndex].name.contains(suggestedCategory)
+                  ? Colors.green
+                  : null,
+              onTap: () async {
+                await CatchupDatabase.instance.updateTransactionCategory(
+                    widget.transaction.id!, categories[catIndex].id!);
+                await widget.refreshTransactions();
+                Navigator.pop(context);
+              },
+            );
+          },
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("OK"),
+        ),
+      ],
+    );
   }
 }

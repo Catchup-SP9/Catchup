@@ -42,6 +42,14 @@ class CatchupDatabase {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<int> updateTransactionCategory(
+      int transactionId, int categoryId) async {
+    final db = await instance.database;
+    return await db.rawUpdate(
+        "UPDATE transactions SET category_id = ? WHERE id = ?",
+        [categoryId, transactionId]);
+  }
+
   Future<List<CatchupCategory>> getAllCategories() async {
     final db = await instance.database;
     final List<Map<String, Object?>> queryResult =
