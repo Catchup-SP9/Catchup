@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/database.dart';
 import 'package:mobile/views/category_details.dart';
@@ -76,31 +81,44 @@ class _HomePageState extends State<HomePage> {
         title: const Text("Catchup"),
         actions: <Widget>[
           IconButton(
-              onPressed: () {}, icon: const Icon(Icons.upload_file_outlined))
+              onPressed: () async {
+                FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['csv'],
+                );
+
+                if (result != null) {
+                  final file = File(result.files.single.path!).openRead();
+                  final fields = await file
+                      .transform(utf8.decoder)
+                      .transform(CsvToListConverter())
+                      .toList();
+                //   parse csv from fields here
+                }
+              },
+              icon: const Icon(Icons.upload_file_outlined))
         ],
       ),
       // If the app is loading, show a loading text
       body: isLoading
           ? const Center(child: Text("Loading"))
-      // then check if the categories list is empty
+          // then check if the categories list is empty
           : categories.isEmpty
-      // if it is empty, show a text to add a category
-          ? const Center(
-        child: Text("It is lonely here, maybe add a category?"),
-      )
-      // if it is not empty, show the list of categories
-      // ListView.builder is used to build a list of widgets from a list of data
-          : ListView.builder(
-          padding: const EdgeInsets.only(bottom: 100),
-          itemCount: categories.length,
-          itemBuilder: buildCategories),
+              // if it is empty, show a text to add a category
+              ? const Center(
+                  child: Text("It is lonely here, maybe add a category?"),
+                )
+              // if it is not empty, show the list of categories
+              // ListView.builder is used to build a list of widgets from a list of data
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  itemCount: categories.length,
+                  itemBuilder: buildCategories),
       // The floating button at the bottom of the screen
       floatingActionButton: FloatingActionButton(
           shape: const CircleBorder(),
           foregroundColor: Colors.white,
           backgroundColor: const Color(0xff18453B).withOpacity(0.90),
-
-
           onPressed: () async {
             // When the button is pressed, navigate to the CreateCategoryPage
             // and wait for the user to return
@@ -120,11 +138,11 @@ class _HomePageState extends State<HomePage> {
 
   Widget buildCategories(BuildContext context, int index) {
     return FutureBuilder<int>(
-      future: CatchupDatabase.instance.getCurrentMonthSum(
-          categories[index].id!),
+      future:
+          CatchupDatabase.instance.getCurrentMonthSum(categories[index].id!),
       builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
+          return const Card(child: ListTile(title: Text("Loading")));
         } else if (snapshot.hasError) {
           debugPrint(snapshot.error.toString());
           return Text("Error: ${snapshot.error}");
@@ -139,41 +157,44 @@ class _HomePageState extends State<HomePage> {
 
           return Card(
               child: ListTile(
-                title: Text(categories[index].name),
-                subtitle:
-                categories[index].spendLimit != 0 ?
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Spent: ${(spentPercentage * 100).round()}%'),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: spentPercentage, // Set the progress value here.
-                    color: interpolateColour((spentPercentage * 100).round()),
-                  ),
-                ]):
-                   Text('Spent: ${spentAmount / 100}'),
-                trailing: IconButton(
-                    onPressed: () async {
-                      await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  CreateTransactionPage(categories[index])));
-                      // When the user returns, refresh the categories list
-                      refreshCategories();
-                    },
-                    icon: const Icon(Icons.add)),
-                onTap: () async {
-                  // When the category is tapped, navigate to the CategoryDetailsPage
-                  // and wait for the user to return
+            title: Text(categories[index].name),
+            subtitle: categories[index].spendLimit != 0
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        Text('Spent: ${(spentPercentage * 100).round()}%'),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value:
+                              spentPercentage, // Set the progress value here.
+                          color: interpolateColour(
+                              (spentPercentage * 100).round()),
+                        ),
+                      ])
+                : Text('Spent: ${spentAmount / 100}'),
+            trailing: IconButton(
+                onPressed: () async {
                   await Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (context) =>
-                              CategoryDetailsPage(categories[index])));
+                              CreateTransactionPage(categories[index])));
                   // When the user returns, refresh the categories list
                   refreshCategories();
                 },
-              ));
+                icon: const Icon(Icons.add)),
+            onTap: () async {
+              // When the category is tapped, navigate to the CategoryDetailsPage
+              // and wait for the user to return
+              await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          CategoryDetailsPage(categories[index])));
+              // When the user returns, refresh the categories list
+              refreshCategories();
+            },
+          ));
         }
       },
     );

@@ -4,6 +4,7 @@ import 'package:mobile/models/category.dart';
 import 'package:mobile/models/transaction.dart';
 
 import '../database.dart';
+import 'create_transaction.dart';
 
 class CategoryDetailsPage extends StatefulWidget {
   // Receive the category as a parameter
@@ -23,10 +24,10 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
   @override
   void initState() {
     super.initState();
-    refreshAmountSpent();
+    refreshTransactions();
   }
 
-  Future refreshAmountSpent() async {
+  Future refreshTransactions() async {
     setState(() => isLoading = true);
 
     amountSpent =
@@ -73,6 +74,17 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
         ],
       ),
       appBar: AppBar(title: Text(widget.category.name), actions: <Widget>[
+        IconButton(
+            onPressed: () async {
+              await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          CreateTransactionPage(widget.category)));
+              // When the user returns, refresh the categories list
+              refreshTransactions();
+            },
+            icon: const Icon(Icons.add)),
         IconButton(
             icon: const Icon(Icons.delete),
             // When the delete button is pressed, show a dialog to confirm the action
@@ -143,7 +155,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
           if (action == "delete") {
             await CatchupDatabase.instance
                 .deleteTransaction(transactions[index].id!);
-            refreshAmountSpent();
+            refreshTransactions();
           }
         },
       ),
