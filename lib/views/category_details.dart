@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/models/category.dart';
 import 'package:mobile/models/transaction.dart';
@@ -71,57 +72,73 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
                   "Amount spent: \$${(amountSpent / 100).toStringAsFixed(2)}"),
           isLoading
               ? const Text("Loading graph")
-              : Container(
-                  height: 300,
-                  width: 500,
-                  padding: const EdgeInsets.only(right: 8, top: 8, left: 8),
-                  child: BarChart(BarChartData(
-                    maxY: maxDailyAmount / 100 * 1.1,
-                    titlesData: FlTitlesData(
-                        show: true,
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (double value, TitleMeta meta) {
-                              if (transactionsByDate[value.toInt()] == 0 &&
-                                  value.toInt() != 0) {
-                                return const SizedBox.shrink();
-                              }
-                              return Text(
-                                DateFormat("MM/dd").format(
-                                    DateTime.fromMillisecondsSinceEpoch(
-                                        value.toInt() * 1000)),
-                                style: const TextStyle(color: Colors.black),
-                              );
-                            },
-                          ),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 32,
-                            getTitlesWidget: (double value, TitleMeta meta) {
-                              return Text("\$${value.toInt()}");
-                            },
-                          ),
-                        )),
-                    barGroups: [
-                      for (final (index, value) in transactionsByDate.indexed)
-                        BarChartGroupData(
-                          x: index,
-                          barRods: [
-                            BarChartRodData(
-                              toY: value / 100,
-                              borderRadius: BorderRadius.zero,
+              : Visibility(
+                  visible: widget.category.id != 1,
+                  child: Container(
+                    height: 300,
+                    width: 500,
+                    padding: const EdgeInsets.only(
+                        right: 8, top: 8, left: 8, bottom: 8),
+                    child: BarChart(BarChartData(
+                      maxY: maxDailyAmount == 0
+                          ? 100
+                          : (maxDailyAmount / 100 * 1.1).round().toDouble(),
+                      barTouchData:
+                          BarTouchData(touchTooltipData: BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          var nthDate =
+                              firstDate.add(Duration(days: groupIndex));
+                          String date = DateFormat("M/dd").format(nthDate);
+                          return BarTooltipItem(
+                              "\$${rod.toY.toStringAsFixed(2)}\n$date",
+                              const TextStyle(color: Colors.white));
+                        },
+                      )),
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      titlesData: FlTitlesData(
+                          show: true,
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: const AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: false,
                             ),
-                          ],
-                        ),
-                    ],
-                  )),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 48,
+                              getTitlesWidget: (double value, TitleMeta meta) {
+                                return Text("\$${value.toInt()}");
+                              },
+                            ),
+                          )),
+                      barGroups: [
+                        for (final (index, value) in transactionsByDate.indexed)
+                          BarChartGroupData(
+                            x: index,
+                            barRods: [
+                              BarChartRodData(
+                                  toY: value / 100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.green,
+                                  backDrawRodData: BackgroundBarChartRodData(
+                                    show: true,
+                                    toY: maxDailyAmount == 0
+                                        ? 100
+                                        : (maxDailyAmount / 100 * 1.1)
+                                            .round()
+                                            .toDouble(),
+                                    color: Colors.grey[200],
+                                  )),
+                            ],
+                          ),
+                      ],
+                    )),
+                  ),
                 ),
           Container(
             padding: const EdgeInsets.all(8),
@@ -249,7 +266,7 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
   Widget buildTransactions(BuildContext context, int index) {
     String transactionDate =
-        DateFormat("yyyy-MM-dd - HH:mm:ss").format(transactions[index].date);
+        DateFormat("MM/dd/yyyy | HH:mm").format(transactions[index].date);
 
     String transactionAmount =
         (transactions[index].amount / 100).toStringAsFixed(2);
@@ -262,40 +279,52 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
                 transactions[index], widget.category, refreshTransactions),
           );
         },
-        child: Card(
-            child: ListTile(
-          title: Text("\$$transactionAmount"),
-          subtitle: Text(transactionDate),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () async {
-              String? action = await showDialog<String>(
-                context: context,
-                builder: (BuildContext context) => AlertDialog(
-                  title: const Text("Confirmation"),
-                  content: Text(
-                      "Are you sure that you want to delete the \$$transactionAmount transaction on $transactionDate?"),
-                  actions: <Widget>[
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, "cancel"),
-                        child: const Text("Cancel")),
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, "delete"),
-                        child: const Text(
-                          "Delete",
-                          style: TextStyle(color: Colors.red),
-                        )),
-                  ],
-                ),
-              );
-              if (action == "delete") {
-                await CatchupDatabase.instance
-                    .deleteTransaction(transactions[index].id!);
-                refreshTransactions();
-              }
-            },
-          ),
-        )));
+        child: Slidable(
+            endActionPane: ActionPane(
+              motion: const DrawerMotion(),
+              extentRatio: 0.2,
+              children: [
+                SlidableAction(
+                  backgroundColor: const Color.fromRGBO(0xff, 0xff, 0xff, 0.0),
+                  foregroundColor: Colors.red,
+                  onPressed: (BuildContext context) async {
+                    String? action = await showDialog<String>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        title: const Text("Confirmation"),
+                        content: Text(
+                            "Are you sure that you want to delete the \$$transactionAmount transaction on $transactionDate?"),
+                        actions: <Widget>[
+                          TextButton(
+                              onPressed: () => Navigator.pop(context, "cancel"),
+                              child: const Text("Cancel")),
+                          TextButton(
+                              onPressed: () => Navigator.pop(context, "delete"),
+                              child: const Text(
+                                "Delete",
+                                style: TextStyle(color: Colors.red),
+                              )),
+                        ],
+                      ),
+                    );
+                    if (action == "delete") {
+                      await CatchupDatabase.instance
+                          .deleteTransaction(transactions[index].id!);
+                      refreshTransactions();
+                    }
+                  },
+                  icon: Icons.delete,
+                )
+              ],
+            ),
+            child: Card(
+              child: ListTile(
+                title: Text(transactions[index].description),
+                subtitle: Text(transactionDate),
+                trailing: Text("\$$transactionAmount",
+                    style: const TextStyle(fontSize: 16)),
+              ),
+            )));
   }
 }
 
@@ -315,6 +344,7 @@ class SwitchCategoryPopup extends StatefulWidget {
 class _SwitchCategoryPopupState extends State<SwitchCategoryPopup> {
   late List<CatchupCategory> categories;
   String suggestedCategory = "";
+  String suggestedCategoryToPrint = "";
   bool isLoading = false;
 
   @override
@@ -353,28 +383,37 @@ class _SwitchCategoryPopupState extends State<SwitchCategoryPopup> {
       content: SizedBox(
         height: 300.0,
         width: 300.0,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: categories.length,
-          itemBuilder: (context, catIndex) {
-            // ignore the current category and the "Uncategorized" category
-            if (categories[catIndex].id == widget.category.id ||
-                categories[catIndex].id == 1) {
-              return const SizedBox.shrink();
-            }
-            return ListTile(
-              title: Text(categories[catIndex].name),
-              tileColor: categories[catIndex].name.contains(suggestedCategory)
-                  ? Colors.green
-                  : null,
-              onTap: () async {
-                await CatchupDatabase.instance.updateTransactionCategory(
-                    widget.transaction.id!, categories[catIndex].id!);
-                await widget.refreshTransactions();
-                Navigator.pop(context);
+        child: Column(
+          children: [
+            Text("Suggested category: $suggestedCategory"),
+            const SizedBox(
+              height: 10,
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              itemCount: categories.length,
+              itemBuilder: (context, catIndex) {
+                // ignore the current category and the "Uncategorized" category
+                if (categories[catIndex].id == widget.category.id ||
+                    categories[catIndex].id == 1) {
+                  return const SizedBox.shrink();
+                }
+                return ListTile(
+                  title: Text(categories[catIndex].name),
+                  tileColor:
+                      categories[catIndex].name.contains(suggestedCategory)
+                          ? Colors.green
+                          : null,
+                  onTap: () async {
+                    await CatchupDatabase.instance.updateTransactionCategory(
+                        widget.transaction.id!, categories[catIndex].id!);
+                    await widget.refreshTransactions();
+                    Navigator.pop(context);
+                  },
+                );
               },
-            );
-          },
+            ),
+          ],
         ),
       ),
       actions: <Widget>[

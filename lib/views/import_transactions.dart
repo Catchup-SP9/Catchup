@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/views/import_chase.dart';
 import 'package:mobile/views/import_paypal.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class ImportTransactionsPage extends StatefulWidget {
   const ImportTransactionsPage({super.key});
@@ -45,7 +46,12 @@ class _ImportTransactionsState extends State<ImportTransactionsPage> {
                             builder: (context) =>
                                 const ImportChaseTransactionsPage()));
                   },
-                  leading: const Icon(Icons.credit_card),
+                  leading: SvgPicture.asset(
+                    "assets/chase.svg",
+                    height: 24,
+                    colorFilter: const ColorFilter.mode(
+                        Colors.black, BlendMode.srcIn),
+                  ),
                 ),
               ],
             )));

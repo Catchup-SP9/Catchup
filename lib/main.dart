@@ -66,6 +66,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => isLoading = true);
 
     categories = await CatchupDatabase.instance.getAllCategories();
+    categories.insert(0, categories.removeLast());
 
     setState(() => isLoading = false);
   }
