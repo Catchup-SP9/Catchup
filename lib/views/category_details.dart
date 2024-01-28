@@ -1,8 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/models/category.dart';
 import 'package:mobile/models/transaction.dart';
-
+import 'package:fl_chart/fl_chart.dart';
 import '../database.dart';
 import 'create_transaction.dart';
 
@@ -18,7 +20,9 @@ class CategoryDetailsPage extends StatefulWidget {
 
 class _CategoryDetailsState extends State<CategoryDetailsPage> {
   late int amountSpent;
+  late int maxDailyAmount;
   late List<CatchupTransaction> transactions;
+  late List<int> transactionsByDate;
   bool isLoading = false;
 
   @override
@@ -35,6 +39,11 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
 
     transactions = await CatchupDatabase.instance
         .getCurrentMonthTransactions(widget.category.id!);
+
+    transactionsByDate = await CatchupDatabase.instance
+        .getCurrentMonthTransactionSumByDay(widget.category.id!);
+
+    maxDailyAmount = transactionsByDate.reduce(max);
 
     setState(() => isLoading = false);
   }
@@ -53,6 +62,29 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
               : Text(
                   "Amount spent: \$${(amountSpent / 100).toStringAsFixed(2)}"),
           const Text("Transactions:"),
+          isLoading
+              ? const Text("Loading chart")
+              : SizedBox(
+                  height: 500,
+                  width: 500,
+                  child: LineChart(LineChartData(
+                    minX: 0,
+                    maxX: 31,
+                    minY: 0,
+                    maxY: maxDailyAmount / 100,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: [
+                          for (final (index, value)
+                              in transactionsByDate.indexed)
+                            FlSpot(index.toDouble(), value / 100)
+                        ],
+                        belowBarData:
+                            BarAreaData(show: true, color: Colors.green),
+                      ),
+                    ],
+                  )),
+                ),
           const ListTile(
             title: Text('Transaction Details'),
             selectedTileColor: Colors.grey,
@@ -64,13 +96,14 @@ class _CategoryDetailsState extends State<CategoryDetailsPage> {
           ),
           isLoading
               ? const ListTile(title: Text("Loading"))
-              : ListView.builder(
+              : Expanded(
+                  child: ListView.builder(
                   padding: const EdgeInsets.only(bottom: 100),
                   itemCount: transactions.length,
                   itemBuilder: buildTransactions,
                   shrinkWrap: true,
                   scrollDirection: Axis.vertical,
-                ),
+                )),
         ],
       ),
       appBar: AppBar(title: Text(widget.category.name), actions: <Widget>[

@@ -31,7 +31,9 @@ class CatchupDatabase {
     await db.execute(
         "CREATE TABLE categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, spend_limit INTEGER NOT NULL)");
     await db.execute(
-        "CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, amount INT NOT NULL, transaction_date INT NOT NULL, category_id INT DEFAULT 0 NOT NULL, FOREIGN KEY (category_id) REFERENCES categories (id))");
+        "INSERT INTO categories(name, spend_limit) VALUES ('Uncategorized', 0)");
+    await db.execute(
+        "CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, amount INT NOT NULL, transaction_date INT NOT NULL, category_id INT DEFAULT 0 NOT NULL, description TEXT, original_transaction_id TEXT UNIQUE, FOREIGN KEY (category_id) REFERENCES categories (id))");
   }
 
   Future<int> createCategory(CatchupCategory category) async {
@@ -110,6 +112,48 @@ class CatchupDatabase {
         whereArgs: [categoryId, firstDateEpoch, lastDateEpoch],
         orderBy: "id DESC");
 
+    // Test code that returns all transactions
+    // final List<Map<String, Object?>> queryResult = await db.query(
+    //     "transactions",
+    //     where: "category_id = ?",
+    //     whereArgs: [categoryId],
+    //     orderBy: "id DESC");
+
     return queryResult.map((e) => CatchupTransaction.fromMap(e)).toList();
+  }
+
+  Future<List<int>> getCurrentMonthTransactionSumByDay(int categoryId) async {
+    final db = await instance.database;
+
+    // get first date of current month
+    DateTime now = DateTime.now();
+    DateTime firstDate = DateTime(now.year, now.month, 1);
+
+    // get last date of current month
+    DateTime lastDate = DateTime(now.year, now.month + 1, 0);
+
+    DateTime currentDate = firstDate;
+    List<int> sums = [];
+
+    while (currentDate.isBefore(lastDate)) {
+      int currentEpoch = currentDate.millisecondsSinceEpoch ~/ 1000;
+      DateTime nextDate = currentDate.add(const Duration(days: 1));
+      int nextDateEpoch = nextDate.millisecondsSinceEpoch ~/ 1000;
+      final List<Map<String, Object?>> queryResult = await db.rawQuery(
+          "SELECT SUM(amount) AS total FROM transactions WHERE category_id = ? AND transaction_date BETWEEN ? AND ?",
+          [
+            categoryId,
+            currentEpoch,
+            nextDateEpoch,
+          ]);
+      if (queryResult[0]["total"] == null) {
+        sums.add(0);
+      } else {
+        sums.add(queryResult[0]["total"] as int);
+      }
+      currentDate = nextDate;
+    }
+
+    return sums;
   }
 }

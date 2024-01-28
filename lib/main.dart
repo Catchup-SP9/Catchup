@@ -1,14 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:csv/csv.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/database.dart';
 import 'package:mobile/views/category_details.dart';
 import 'package:mobile/views/create_category.dart';
 import 'package:mobile/views/create_transaction.dart';
 import 'package:mobile/helpers.dart';
+import 'package:mobile/views/import_transactions.dart';
 import 'models/category.dart';
 
 void main() {
@@ -81,22 +77,14 @@ class _HomePageState extends State<HomePage> {
         title: const Text("Catchup"),
         actions: <Widget>[
           IconButton(
-              onPressed: () async {
-                FilePickerResult? result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: ['csv'],
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ImportTransactionsPage()),
                 );
-
-                if (result != null) {
-                  final file = File(result.files.single.path!).openRead();
-                  final fields = await file
-                      .transform(utf8.decoder)
-                      .transform(CsvToListConverter())
-                      .toList();
-                //   parse csv from fields here
-                }
               },
-              icon: const Icon(Icons.upload_file_outlined))
+              icon: const Icon(Icons.import_export)),
         ],
       ),
       // If the app is loading, show a loading text

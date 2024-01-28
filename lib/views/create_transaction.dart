@@ -7,6 +7,7 @@ import 'package:mobile/models/transaction.dart';
 class CreateTransactionPage extends StatefulWidget {
   final CatchupCategory category;
 
+
   const CreateTransactionPage(this.category, {super.key});
 
   @override
@@ -15,13 +16,31 @@ class CreateTransactionPage extends StatefulWidget {
 
 class _CreateTransactionState extends State<CreateTransactionPage> {
   final numberController = TextEditingController();
+  final descriptionController = TextEditingController();
+  DateTime? selectedDate;
 
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
     numberController.dispose();
+    descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime pickedDate = (await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    )) ?? DateTime.now();
+
+    if (pickedDate != null && pickedDate != selectedDate) {
+      setState(() {
+        selectedDate = pickedDate;
+      });
+    }
   }
 
   @override
@@ -74,35 +93,71 @@ class _CreateTransactionState extends State<CreateTransactionPage> {
                             int amount =
                                 (double.parse(numberController.text) * 100)
                                     .round();
-                            await CatchupDatabase.instance.createTransaction(
-                                CatchupTransaction(
-                                    amount: amount,
-                                    date: DateTime.now(),
-                                    categoryId: widget.category.id!));
-                            // close the page and return to the previous page
-                            Navigator.pop(context);
+
                           }
                         },
                       ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: "Description",
+                        ),
+                        controller: descriptionController,
+                        autofocus: true,
+                        keyboardType: TextInputType.text,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Please enter a description";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text("Transaction Date: "),
+                          Text(selectedDate != null
+                              ? "${selectedDate!.toLocal()}".split(' ')[0]
+                              : "${DateTime.now().toLocal()}".split(' ')[0],),
+                          OutlinedButton(
+                            onPressed: () => _selectDate(context),
+                            child: Text(
+                              "Change Date",
+                            ),
+                            style: TextButton.styleFrom(
+                              primary: Colors.lightGreen
+                            ),
+                          ),
+                        ],
+
+                      ),
+
                     ],
+
                   )),
+
             ),
             // The ElevatedButton is used to submit the form
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
                   // convert the number to cents
-                  int amount =
-                      (double.parse(numberController.text) * 100).round();
+                  int amount = (double.parse(numberController.text) * 100).round();
+                  String description = descriptionController.text;
+
                   await CatchupDatabase.instance.createTransaction(
                       CatchupTransaction(
                           amount: amount,
-                          date: DateTime.now(),
-                          categoryId: widget.category.id!));
+                          date: selectedDate!,
+                          //date: DateTime.now(),
+                          categoryId: widget.category.id!, description: description));
                   // close the page and return to the previous page
                   Navigator.pop(context);
                 }
               },
+
+
               style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
                   backgroundColor: const Color(0xff18453B).withOpacity(0.90),
